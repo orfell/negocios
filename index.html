@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Consulta de notas</title>
+  <style>
+    :root{--azul:#0064bd;--gris:#6f7982;--fondo:#edf2f5;--texto:#111827}
+    *{box-sizing:border-box}body{margin:0;background:#f5f7f9;color:var(--texto);font-family:Arial,sans-serif}
+    .pagina{width:min(650px,100%);min-height:100vh;margin:auto;padding:26px 29px 30px;background:#fff;box-shadow:0 2px 18px #00000012}
+    .logo{display:block;width:min(519px,100%);height:182px;object-fit:contain;margin:0 auto 4px}
+    .separador{border:0;border-top:1px solid #d7dee3;margin:0 44px 20px}
+    .encabezado{text-align:center;font-weight:700;font-size:16px;line-height:1.4;margin-bottom:14px}
+    .consulta{margin-top:28px;padding:19px 28px;background:var(--fondo);border-radius:7px}
+    .consulta h2{font-size:16px;text-align:center;margin:0 0 12px}
+    .acciones{display:grid;grid-template-columns:1fr 111px 95px;gap:14px}
+    input,button{min-height:39px;border-radius:5px;font:inherit}input{width:100%;padding:8px 12px;border:1px solid #c8cdd2;font-size:15px}
+    button{border:0;color:#fff;font-weight:700;cursor:pointer;background:var(--azul)}button[type=button]{background:var(--gris)}button:hover{filter:brightness(.94)}
+    .mensaje{display:none;margin:12px 0 0;text-align:center;font-weight:700;color:#b42318}.resultado{display:none;margin-top:28px}
+    .datos{display:grid;grid-template-columns:130px 1fr;margin-bottom:23px}.datos strong,.datos span{min-height:31px;padding:6px 9px;border-bottom:1px solid #111}
+    .datos strong{padding-left:0;border-bottom-color:transparent}.datos span{border-left:1px solid #111;border-right:1px solid #111}.datos span:first-of-type{border-top:1px solid #111}
+    table{width:100%;border-collapse:collapse;margin-bottom:25px;table-layout:fixed}th,td{border:1px solid #111;padding:6px 9px;text-align:center}
+    th{background:#8d8d8d;color:#fff}td:first-child{text-align:left;font-weight:700}.definitiva{display:grid;grid-template-columns:66% 34%;align-items:center;font-weight:700}
+    .nota-final{width:100%;min-height:32px;border:1px solid #111;padding:6px 9px;display:flex;align-items:center;justify-content:center;font-size:16px}.perdida{color:#d00000;font-weight:700}
+    @media(max-width:560px){.pagina{width:100%;padding:14px 12px 22px;box-shadow:none}.logo{width:100%;height:128px}.separador{margin:0 4px 15px}.encabezado{font-size:14px;line-height:1.45}.consulta{margin-top:20px;padding:16px 12px}.consulta h2{font-size:15px}.acciones{grid-template-columns:1fr 1fr;gap:10px}.acciones input{grid-column:1/-1;font-size:16px}.resultado{margin-top:22px}.datos{grid-template-columns:105px minmax(0,1fr);font-size:13px;margin-bottom:18px}.datos strong,.datos span{padding:6px 5px;overflow-wrap:anywhere}table{font-size:13px;margin-bottom:20px}th,td{padding:7px 4px}.definitiva{font-size:14px}.nota-final{font-size:15px}}
+    @media(max-width:360px){.logo{height:110px}.acciones{grid-template-columns:1fr}.acciones input{grid-column:auto}.datos{grid-template-columns:92px minmax(0,1fr);font-size:12px}table{font-size:12px}}
+  </style>
+</head>
+<body>
+<main class="pagina">
+  <img id="logo" class="logo" alt="Logo institucional">
+  <hr class="separador">
+  <header class="encabezado"><span id="titulo"></span><br><span id="periodo"></span><br><span id="asignatura"></span><br><span id="programa"></span><br><span id="docente"></span></header>
+  <hr class="separador">
+  <section class="consulta">
+    <h2>Consulta de Notas - Estudiantes</h2>
+    <form id="formulario" class="acciones">
+      <input id="documento" inputmode="numeric" autocomplete="off" placeholder="Ej: 1.058.966.757" aria-label="Documento de identificación">
+      <button type="submit">Consultar</button><button type="button" id="limpiar">Limpiar</button>
+    </form>
+    <p id="mensaje" class="mensaje" role="alert">Documento no encontrado</p>
+  </section>
+  <section id="resultado" class="resultado" aria-live="polite">
+    <div class="datos"><strong>Identificación</strong><span id="idSalida"></span><strong>Nombre</strong><span id="nombreSalida"></span><strong>Programa:</strong><span id="programaSalida"></span></div>
+    <table><colgroup><col style="width:33%"><col style="width:17%"><col style="width:16%"><col style="width:34%"></colgroup>
+      <thead><tr><th>Actividad</th><th>Nota</th><th>%</th><th>Acumulado</th></tr></thead><tbody id="filas"></tbody>
+    </table>
+    <div class="definitiva"><span>Definitiva</span><span id="definitiva" class="nota-final"></span></div>
+    <div class="retroalimentacion" style="margin-top:18px;line-height:1.9;font-weight:700">
+      <div id="retroS1"></div>
+      <div id="retroS4" style="color:#545b62">Retroalimentación Taller S5</div>
+    </div>
+  </section>
+</main>
+<script>
+/* EDITAR SOLO ESTE BLOQUE DE CONFIGURACIÓN Y DATOS. */
+const CONFIG={
+  titulo:"Socialización de Notas",
+  periodo:"Período 2026-II",
+  asignatura:"Inteligencia de Negocios",
+  programa:"Ingeniería de Sistemas",
+  codigoPrograma:"IS",
+  docente:"Julio Ricardo Martínez Montezuma",
+  logo:"https://campusvirtual.unicomfacauca.edu.co/pluginfile.php/46925/course/overviewfiles/CURVAS-Logo-acreditacio%CC%81n-institucional-2022-01-2.png",
+  actividades:[
+    {nombre:"Taller C2S1",porcentaje:20},
+    {nombre:"Taller C2S4",porcentaje:70}
+  ]
+};
+/* Formato por estudiante: "documento": {nombre, notas, acumulados, asistencia, definitiva}. */
+const ESTUDIANTES={
+  "1063807451": {
+    "nombre": "BARRIOS ORTEGA MARIA JOSE",
+    "notas": [
+      "3,6",
+      "3,6"
+    ],
+    "acumulados": [
+      "0,72",
+      "2,52"
+    ],
+    "asistencia": "0,3",
+    "definitiva": "3,5"
+  },
+  "1022936723": {
+    "nombre": "BUITRAGO MOLINA JAKSON ALEJANDRO",
+    "notas": [
+      "4,0",
+      "3,1"
+    ],
+    "acumulados": [
+      "0,80",
+      "2,17"
+    ],
+    "asistencia": "0,4",
+    "definitiva": "3,4"
+  },
+  "1058547462": {
+    "nombre": "CANOLA MUÑOZ PAULA ISABELLA",
+    "notas": [
+      "4,7",
+      "4,0"
+    ],
+    "acumulados": [
+      "0,94",
+      "2,80"
+    ],
+    "asistencia": "0,4",
+    "definitiva": "4,1"
+  },
+  "1002968686": {
+    "nombre": "CHICANGANA CAMPO DIEGO ALEJANDRO",
+    "notas": [
+      "1,0",
+      "3,4"
+    ],
+    "acumulados": [
+      "0,20",
+      "2,38"
+    ],
+    "asistencia": "0,3",
+    "definitiva": "2,9"
+  },
+  "1061218266": {
+    "nombre": "FERNANDEZ DIAZ SAMUEL",
+    "notas": [
+      "4,0",
+      "4,0"
+    ],
+    "acumulados": [
+      "0,80",
+      "2,80"
+    ],
+    "asistencia": "0,4",
+    "definitiva": "4,0"
+  },
+  "1051816585": {
+    "nombre": "LAMADRID CALDERON YEISON ANDRES",
+    "notas": [
+      "4,0",
+      "3,1"
+    ],
+    "acumulados": [
+      "0,80",
+      "2,17"
+    ],
+    "asistencia": "0,5",
+    "definitiva": "3,5"
+  },
+  "1059595893": {
+    "nombre": "LIZ VALENCIA JULIAN ALBERTO",
+    "notas": [
+      "3,2",
+      "3,6"
+    ],
+    "acumulados": [
+      "0,64",
+      "2,52"
+    ],
+    "asistencia": "0,4",
+    "definitiva": "3,6"
+  },
+  "1002966444": {
+    "nombre": "MANQUILLO TOSE HEITAN SANTIAGO",
+    "notas": [
+      "3,6",
+      "3,6"
+    ],
+    "acumulados": [
+      "0,72",
+      "2,52"
+    ],
+    "asistencia": "0,5",
+    "definitiva": "3,7"
+  },
+  "1003103760": {
+    "nombre": "MANZANO TRUQUE JUAN MANUEL",
+    "notas": [
+      "3,2",
+      "3,6"
+    ],
+    "acumulados": [
+      "0,64",
+      "2,52"
+    ],
+    "asistencia": "0,5",
+    "definitiva": "3,7"
+  },
+  "1002822113": {
+    "nombre": "MARTINEZ GRUESO JEYLER ANTONIO",
+    "notas": [
+      "1,0",
+      "3,8"
+    ],
+    "acumulados": [
+      "0,20",
+      "2,66"
+    ],
+    "asistencia": "0,4",
+    "definitiva": "3,3"
+  },
+  "1002959640": {
+    "nombre": "ORDOÑEZ CAMPO JHOAN SEBASTIAN",
+    "notas": [
+      "4,7",
+      "4,0"
+    ],
+    "acumulados": [
+      "0,94",
+      "2,80"
+    ],
+    "asistencia": "0,5",
+    "definitiva": "4,2"
+  },
+  "1062285278": {
+    "nombre": "PAZ FERNANDEZ YULIETH ROSSANA",
+    "notas": [
+      "3,8",
+      "3,8"
+    ],
+    "acumulados": [
+      "0,76",
+      "2,66"
+    ],
+    "asistencia": "0,4",
+    "definitiva": "3,8"
+  },
+  "1116914295": {
+    "nombre": "PIRA SANCHEZ KEVIN ANDRES",
+    "notas": [
+      "1,0",
+      "3,4"
+    ],
+    "acumulados": [
+      "0,20",
+      "2,38"
+    ],
+    "asistencia": "0,3",
+    "definitiva": "2,9"
+  },
+  "1002965097": {
+    "nombre": "ROSADA OTERO SANTIAGO",
+    "notas": [
+      "3,8",
+      "4,3"
+    ],
+    "acumulados": [
+      "0,76",
+      "3,01"
+    ],
+    "asistencia": "0,5",
+    "definitiva": "4,3"
+  },
+  "1002821756": {
+    "nombre": "SANCHEZ CHAMORRO KEVIN ANDRES",
+    "notas": [
+      "3,8",
+      "3,8"
+    ],
+    "acumulados": [
+      "0,76",
+      "2,66"
+    ],
+    "asistencia": "0,2",
+    "definitiva": "3,6"
+  },
+  "1002967562": {
+    "nombre": "TINTINAGO VALVERDE DANA SOFIA",
+    "notas": [
+      "4,0",
+      "4,0"
+    ],
+    "acumulados": [
+      "0,80",
+      "2,80"
+    ],
+    "asistencia": "0,2",
+    "definitiva": "3,8"
+  },
+  "1058547582": {
+    "nombre": "TRUJILLO ORTEGA ANNY DAIANNA",
+    "notas": [
+      "4,0",
+      "4,0"
+    ],
+    "acumulados": [
+      "0,80",
+      "2,80"
+    ],
+    "asistencia": "0,3",
+    "definitiva": "3,9"
+  },
+  "1061699726": {
+    "nombre": "VALENCIA NUÑEZ CARLOS EDUARDO",
+    "notas": [
+      "4,0",
+      "4,0"
+    ],
+    "acumulados": [
+      "0,80",
+      "2,80"
+    ],
+    "asistencia": "0,4",
+    "definitiva": "4,0"
+  },
+  "1058547700": {
+    "nombre": "YELA VEGA MIGUEL ALEJANDRO",
+    "notas": [
+      "4,0",
+      "4,0"
+    ],
+    "acumulados": [
+      "0,80",
+      "2,80"
+    ],
+    "asistencia": "0,3",
+    "definitiva": "3,9"
+  },
+  "1059236425": {
+    "nombre": "ZEMANATE ALFARO VICTOR MANUELLE",
+    "notas": [
+      "4,0",
+      "4,0"
+    ],
+    "acumulados": [
+      "0,80",
+      "2,80"
+    ],
+    "asistencia": "0,3",
+    "definitiva": "3,9"
+  },
+  "1063807353": {
+    "nombre": "ZEMANATE CARLOZAMA JOSE GABRIEL",
+    "notas": [
+      "1,0",
+      "1,0"
+    ],
+    "acumulados": [
+      "0,20",
+      "0,70"
+    ],
+    "asistencia": "0",
+    "definitiva": "0,9"
+  }
+};
+
+const RETRO_S1={
+  "1002965097": "Retroalimentacion_S1/Retroalimentacion_Grupo_11_Telco_Churn_C2S1_Formato_Unificado.pdf",
+  "1058547582": "Retroalimentacion_S1/Retroalimentacion_Grupo_1_Telco_Churn_C2S1_Nota_4_00.pdf",
+  "1061699726": "Retroalimentacion_S1/Retroalimentacion_Grupo_1_Telco_Churn_C2S1_Nota_4_00.pdf",
+  "1061218266": "Retroalimentacion_S1/Retroalimentacion_Grupo_2_Telco_Churn_C2S1_Formato_Unificado.pdf",
+  "1059236425": "Retroalimentacion_S1/Retroalimentacion_Grupo_2_Telco_Churn_C2S1_Formato_Unificado.pdf",
+  "1002959640": "Retroalimentacion_S1/Retroalimentacion_Grupo_4_Telco_Churn_C2S1_Formato_Unificado.pdf",
+  "1059595893": "Retroalimentacion_S1/Retroalimentacion_Grupo_5_Telco_Churn_C2S1_Formato_Unificado.pdf",
+  "1003103760": "Retroalimentacion_S1/Retroalimentacion_Grupo_5_Telco_Churn_C2S1_Formato_Unificado.pdf",
+  "1116914295": "Retroalimentacion_S1/Retroalimentacion_Grupo_6_Telco_Churn_C2S1_No_Entregado.pdf",
+  "1002968686": "Retroalimentacion_S1/Retroalimentacion_Grupo_6_Telco_Churn_C2S1_No_Entregado.pdf",
+  "1063807451": "Retroalimentacion_S1/Retroalimentacion_Grupo_7_Telco_Churn_C2S1.pdf",
+  "1002966444": "Retroalimentacion_S1/Retroalimentacion_Grupo_7_Telco_Churn_C2S1.pdf",
+  "1058547700": "Retroalimentacion_S1/Retroalimentacion_Grupo_8_Telco_Churn_C2S1.pdf",
+  "1051816585": "Retroalimentacion_S1/Retroalimentacion_Grupo_9_Telco_Churn_C2S1_Formato_Unificado.pdf",
+  "1022936723": "Retroalimentacion_S1/Retroalimentacion_Grupo_9_Telco_Churn_C2S1_Formato_Unificado.pdf",
+  "1058547462": "Retroalimentacion_S1/Retroalimentacion_Grupo_10_Telco_Churn_C2S1_Formato_Unificado.pdf",
+  "1002967562": "Retroalimentacion_S1/Retroalimentacion_Grupo_10_Telco_Churn_C2S1_Formato_Unificado.pdf",
+  "1062285278": "Retroalimentacion_S1/Retroalimentacion_Grupo_11_Telco_Churn_C2S1_Formato_Unificado.pdf",
+  "1002821756": "Retroalimentacion_S1/Retroalimentacion_Grupo_11_Telco_Churn_C2S1_Formato_Unificado.pdf"
+};
+const RETRO_S5={
+  "1063807451": "Retroalimentacion_S5/Retroalimentacion_Grupo_1_Hotel_Booking_Actualizada.pdf",
+  "1002966444": "Retroalimentacion_S5/Retroalimentacion_Grupo_1_Hotel_Booking_Actualizada.pdf",
+  "1022936723": "Retroalimentacion_S5/Retroalimentacion_Grupo_2_Citas_Medicas_Brasil.pdf",
+  "1051816585": "Retroalimentacion_S5/Retroalimentacion_Grupo_2_Citas_Medicas_Brasil.pdf",
+  "1002967562": "Retroalimentacion_S5/Retroalimentacion_Grupo_3_Olist_Brasil_Formato_Unificado.pdf",
+  "1058547462": "Retroalimentacion_S5/Retroalimentacion_Grupo_3_Olist_Brasil_Formato_Unificado.pdf",
+  "1058547582": "Retroalimentacion_S5/Retroalimentacion_Grupo_4_Kickstarter_Nota_4_00.pdf",
+  "1061699726": "Retroalimentacion_S5/Retroalimentacion_Grupo_4_Kickstarter_Nota_4_00.pdf",
+  "1002965097": "Retroalimentacion_S5/Retroalimentacion_Grupo_5_Titanic_Formato_Unificado.pdf",
+  "1002968686": "Retroalimentacion_S5/Retroalimentacion_Grupo_6_Hotel_Booking.pdf",
+  "1116914295": "Retroalimentacion_S5/Retroalimentacion_Grupo_6_Hotel_Booking.pdf",
+  "1059595893": "Retroalimentacion_S5/Retroalimentacion_Grupo_7_Citas_Medicas_Brasil.pdf",
+  "1003103760": "Retroalimentacion_S5/Retroalimentacion_Grupo_7_Citas_Medicas_Brasil.pdf",
+  "1002959640": "Retroalimentacion_S5/Retroalimentacion_Grupo_8_Olist_Brasil_Formato_Unificado.pdf",
+  "1058547700": "Retroalimentacion_S5/Retroalimentacion_Grupo_8_Olist_Brasil_Formato_Unificado.pdf",
+  "1062285278": "Retroalimentacion_S5/Retroalimentacion_Grupo_9_Kickstarter_Formato_Corregido.pdf",
+  "1002821756": "Retroalimentacion_S5/Retroalimentacion_Grupo_9_Kickstarter_Formato_Corregido.pdf",
+  "1002822113": "Retroalimentacion_S5/Retroalimentacion_Grupo_10_Kickstarter_Formato_Unificado.pdf",
+  "1061218266": "Retroalimentacion_S5/Retroalimentacion_Grupo_11_Titanic_Formato_Unificado.pdf",
+  "1059236425": "Retroalimentacion_S5/Retroalimentacion_Grupo_11_Titanic_Formato_Unificado.pdf"
+};
+const $=id=>document.getElementById(id);
+const fmt=n=>typeof n==='string'?n:Number(n).toLocaleString('es-CO',{minimumFractionDigits:1,maximumFractionDigits:2});
+const fmtId=id=>id.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+const faltasPorAcumulado={"0.5":0,"0.4":1,"0.3":2,"0.2":3,"0.1":4,"0.0":5};
+function iniciar(){document.title=`Consulta de notas — ${CONFIG.asignatura}`;$('logo').src=CONFIG.logo;$('titulo').textContent=CONFIG.titulo;$('periodo').textContent=CONFIG.periodo;$('asignatura').textContent=CONFIG.asignatura;$('programa').textContent=CONFIG.programa;$('docente').textContent=CONFIG.docente}
+function ocultar(){$('resultado').style.display='none';$('mensaje').style.display='none'}
+function actualizarRetroalimentacion(id){
+  const contenedor=$('retroS1');
+  contenedor.replaceChildren();
+  const notaS1=Number(String(ESTUDIANTES[id]?.notas?.[0] ?? '').replace(',','.'));
+  const ruta=notaS1===1 ? null : RETRO_S1[id];
+  if(notaS1===1){
+    const texto=document.createElement('span');
+    texto.textContent='Taller Semana S1 no Presentado';
+    texto.style.color='#000';
+    contenedor.appendChild(texto);
+  }else if(ruta){
+    const enlace=document.createElement('a');
+    enlace.textContent='Retroalimentación Taller S1';
+    enlace.href=ruta.split('/').map(encodeURIComponent).join('/');
+    enlace.target='_blank';
+    enlace.rel='noopener noreferrer';
+    contenedor.appendChild(enlace);
+  }else{
+    const texto=document.createElement('span');
+    texto.textContent='Retroalimentación Taller S1';
+    texto.style.color='#545b62';
+    contenedor.appendChild(texto);
+  }
+}
+function actualizarRetroalimentacionS5(id){
+  const contenedor=$('retroS4');
+  contenedor.replaceChildren();
+  const notaS5=Number(String(ESTUDIANTES[id]?.notas?.[1] ?? '').replace(',','.'));
+  const ruta=notaS5===1 ? null : RETRO_S5[id];
+  if(notaS5===1){
+    const texto=document.createElement('span');
+    texto.textContent='Taller Semana S5 no Presentado';
+    texto.style.color='#000';
+    contenedor.appendChild(texto);
+  }else if(ruta){
+    const enlace=document.createElement('a');
+    enlace.textContent='Retroalimentación Taller S5';
+    enlace.href=ruta.split('/').map(encodeURIComponent).join('/');
+    enlace.target='_blank';
+    enlace.rel='noopener noreferrer';
+    contenedor.appendChild(enlace);
+  }else{
+    const texto=document.createElement('span');
+    texto.textContent='Retroalimentación Taller S5';
+    texto.style.color='#545b62';
+    contenedor.appendChild(texto);
+  }
+}
+function fila(celdas){const tr=document.createElement('tr');celdas.forEach((valor,i)=>{const td=document.createElement('td');td.textContent=valor;if(i===1&&Number(valor.replace?.(',','.'))<3)td.classList.add('perdida');tr.appendChild(td)});return tr}
+$('formulario').addEventListener('submit',e=>{e.preventDefault();const id=$('documento').value.replace(/\D/g,''),d=ESTUDIANTES[id];ocultar();if(!d){$('mensaje').style.display='block';return}
+  actualizarRetroalimentacion(id);actualizarRetroalimentacionS5(id);$('idSalida').textContent=fmtId(id);$('nombreSalida').textContent=d.nombre;$('programaSalida').textContent=CONFIG.codigoPrograma;$('filas').replaceChildren();
+  CONFIG.actividades.forEach((a,i)=>$('filas').appendChild(fila([a.nombre,fmt(d.notas[i]),`${fmt(a.porcentaje)}%`,fmt(d.acumulados[i])])));
+  $('filas').appendChild(fila(['Faltas',String(faltasPorAcumulado[Number(String(d.asistencia).replace(',','.')).toFixed(1)] ?? '—'),'10%',fmt(d.asistencia)]));
+  $('definitiva').textContent=fmt(d.definitiva);$('definitiva').classList.toggle('perdida',Number(String(d.definitiva).replace(',','.'))<3);$('resultado').style.display='block'
+});
+$('limpiar').addEventListener('click',()=>{$('documento').value='';ocultar();$('documento').focus()});
+iniciar();
+</script>
+</body>
+</html>
